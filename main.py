@@ -14,7 +14,7 @@ parser = argparse.ArgumentParser(
     description="CS2 items_game.txt dumper -- dumps the whole file depending on settings."
 )
 
-# dump items
+# dump X
 parser.add_argument(
     "-d",
     "--dump",
@@ -56,9 +56,11 @@ def dump_items(items):
     f.write(f"struct item_t\n")
     f.write(f"{{\n")
     f.write(f"\t// item name\n")
-    f.write(f"\tstd::string name{{}};\n")
+    f.write(f"\tconst char* name{{nullptr}};\n")
     f.write(f"\t// item price, how much does it cost in-game;\n")
-    f.write(f"\tint32_t cost{{}};\n")
+    f.write(f"\tint32_t cost{{-1}};\n")
+    f.write(f"\t// weapon type string;\n")
+    f.write(f"\tconst char* weapon_type{{nullptr}};\n")
     f.write(f"}};\n\n")
 
     # items
@@ -70,6 +72,8 @@ def dump_items(items):
     for definition_index, item in items.items():
         item_name = item['name']
         price = 0
+        weapon_type = ""
+        item_prefab_name = ""
         try:
             item_prefab_name = item['prefab']
 
@@ -79,11 +83,17 @@ def dump_items(items):
                             ['attributes']['in game price'])
             except:
                 price = 0
+
+             # get weapon type
+            try:
+                weapon_type = prefabs[item_prefab_name]['visuals']['weapon_type']
+            except:
+                pass
         except:
-            item_prefab_name = ""
+            pass
 
         f.write(
-            f"\t{{ {definition_index}, {{ \"{item_name}\", {price} }} }},\n")
+            f"\t{{ {definition_index}, {{ \"{item_name}\", {price}, \"{weapon_type}\" }} }},\n")
 
     f.write(
         f'}};\n')
