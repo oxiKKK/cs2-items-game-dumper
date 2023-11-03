@@ -35,13 +35,65 @@ current_input_file = ""
 prefabs = any
 
 
-def dump_items(items):
-    print(f'dumping {len(items)} items...')
+def get_item_price(
+    vdf: vdf.VDFDict  # 'attributes' entry
+):
+    if 'in game price' in vdf:
+        return int(vdf['in game price'])
+    else:
+        return 0
+
+
+def get_weapon_type(
+    vdf: vdf.VDFDict  # 'visuals' entry
+):
+    if 'weapon_type' in vdf:
+        return vdf['weapon_type']
+    else:
+        return ""
+
+
+def get_entry_recursive(
+    vdf: vdf.VDFDict,  # definition item entry
+    entry: str         # the entry name we're looking for
+):
+    """traverse along the prefab tree till we get 'entry' nested dict."""
+
+    # 1. first, try the item itself, it may contain attributes.
+    if entry in vdf:
+        return vdf[entry]
+
+    # 2. else, we traverse the prefab tree.
+
+    # we don't have any prefabs in this item
+    if 'prefab' not in vdf:
+        return None
+
+    # we don't have this prefab in prefabs. (shouldn't happen)
+    prefab_keyname = vdf['prefab']
+    if prefab_keyname not in prefabs:
+        return None
+
+    prefab_entry = prefabs[prefab_keyname]
+    return get_entry_recursive(prefab_entry, entry)
+
+
+def open_output_file():
+    """opens and returns the output file for write"""
     try:
         if not os.path.exists('out'):
             os.makedirs('out')  # NOTE: this is a real hack
-        f = open('out/definition_items.cc', 'w')
+        return open('out/definition_items.cc', 'w')
     except:
+        return None
+
+
+def dump_items(items):
+    print(f'dumping {len(items)} items...')
+
+    # open the output file
+    f = open_output_file()
+    if not f:
         print(f'error: cannot open output file.')
         return
 
@@ -52,15 +104,20 @@ def dump_items(items):
     f.write(f"// input file: {current_input_file}\n")
     f.write(f"// {len(items)} items\n\n")
 
+    # includes
+    f.write(f"#include <unordered_map>\n")
+    f.write(f"#include <cstdint>\n")
+    f.write(f"\n")
+
     # structure
     f.write(f"struct item_t\n")
     f.write(f"{{\n")
     f.write(f"\t// item name\n")
-    f.write(f"\tconst char* name{{nullptr}};\n")
+    f.write(f"\tconst char* name{{ nullptr }};\n")
     f.write(f"\t// item price, how much does it cost in-game;\n")
-    f.write(f"\tint32_t cost{{-1}};\n")
+    f.write(f"\tint32_t cost{{ -1 }};\n")
     f.write(f"\t// weapon type string;\n")
-    f.write(f"\tconst char* weapon_type{{nullptr}};\n")
+    f.write(f"\tconst char* weapon_type{{ nullptr }};\n")
     f.write(f"}};\n\n")
 
     # items
@@ -70,30 +127,21 @@ def dump_items(items):
         f'{{\n')
 
     for definition_index, item in items.items():
-        item_name = item['name']
         price = 0
         weapon_type = ""
-        item_prefab_name = ""
-        try:
-            item_prefab_name = item['prefab']
 
-            # get item in-game price
-            try:
-                price = int(prefabs[item_prefab_name]
-                            ['attributes']['in game price'])
-            except:
-                price = 0
+        # get the attributes entry
+        attributes = get_entry_recursive(item, 'attributes')
+        if attributes:
+            price = get_item_price(attributes)
 
-             # get weapon type
-            try:
-                weapon_type = prefabs[item_prefab_name]['visuals']['weapon_type']
-            except:
-                pass
-        except:
-            pass
+        # get the visuals entry
+        visuals = get_entry_recursive(item, 'visuals')
+        if visuals:
+            weapon_type = get_weapon_type(visuals)
 
         f.write(
-            f"\t{{ {definition_index}, {{ \"{item_name}\", {price}, \"{weapon_type}\" }} }},\n")
+            f"\t{{ {definition_index}, {{ \"{item['name']}\", {price}, \"{weapon_type}\" }} }},\n")
 
     f.write(
         f'}};\n')

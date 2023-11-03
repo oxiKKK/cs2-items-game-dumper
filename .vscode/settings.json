@@ -1,6 +1,8 @@
 {
-	"files.associations": {
-		"*.ejs": "html",
-		"unordered_map": "cpp"
-	}
+  "files.associations": {
+    "*.ejs": "html",
+    "unordered_map": "cpp",
+    "compare": "cpp",
+    "cstdint": "cpp"
+  }
 }
